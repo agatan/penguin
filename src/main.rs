@@ -230,5 +230,40 @@ fn and_test() {
     }
 }
 
+struct NotParser<I: Clone, P: Parser<Input=I>> {
+    p: P,
+}
+impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
+    type Output = ();
+    type Input = P::Input;
+
+    fn parse<I>(&self, mut src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+
+        let save = src.clone();
+        match self.p.parse(src) {
+            Ok((_, _)) => Err((Error::Expect, save)),
+            Err((_, _)) => Ok(((), save)),
+        }
+    }
+}
+
+fn not<I: Clone, P: Parser<Input=I>>(p: P) -> NotParser<I, P> {
+    NotParser { p: p }
+}
+
+#[test]
+fn not_test() {
+    let t_ex = exact('t');
+    let src = "te".chars().peekable();
+    let not_p = not(t_ex);
+    let res = not_p.parse(src);
+    assert!(res.is_err());
+    if let Err((_, ctx)) = res {
+        assert_eq!(vec!['t', 'e'], ctx.collect::<Vec<_>>());
+    }
+}
+
 #[cfg(not(test))]
 fn main() {}
