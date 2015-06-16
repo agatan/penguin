@@ -1,15 +1,27 @@
 use std::iter::{Iterator, Peekable};
 use std::marker::PhantomData;
 
+/// Parse Error. This is still a placeholder.
+/// This will be more useful error message in the future.
 pub enum Error {
     Expect
 }
 
+/// This is a result type of parse.
+/// `Ok` value and `Err` value have a context of parse (rest of stream that is parsed)
+/// `Res` is a return type of parse if succeeded.
+/// `P` is a parser context type
 pub type ParseResult<Res, P> = Result<(Res, P), (Error, P)>;
 
+/// This is a main trait of this parser library.
+/// If you want to parse string, `Input` may be `char`.
 pub trait Parser {
+    /// `Output` is a type of parse when the parse succeeded.
     type Output;
+    /// `Input` is a type of stream's element that is parsed.
     type Input;
+    /// returns parse result and context of parse.
+    /// If you want to parse string, `src` may be `Peekable<char>`
     fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> + Clone;
