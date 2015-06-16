@@ -20,14 +20,14 @@ where F: FnMut(P::Output) -> B {
     }
 }
 
-pub fn map<B, P: Parser + Clone, F>(p: &P, f: F) -> Map<P, F>
+pub fn map<B, P: Parser + Clone, F>(p: P, f: F) -> Map<P, F>
 where F: FnMut(P::Output) -> B {
-    Map { p: p.clone(), f: f }
+    Map { p: p, f: f }
 }
 
 #[test]
 fn map_test() {
-    let mut m = map(&exact('a'), |_| { 1 });
+    let mut m = map(exact('a'), |_| { 1 });
     let src = "abc".chars().peekable();
     let res = m.parse(src);
     assert!(res.is_ok());

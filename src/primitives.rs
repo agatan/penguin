@@ -220,15 +220,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
         }
     }
 }
-pub fn and<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> AndParser<I, P> {
-    AndParser { p : p.clone() }
+pub fn and<I: Clone, P: Parser<Input=I>>(p: P) -> AndParser<I, P> {
+    AndParser { p : p }
 }
 
 #[test]
 fn and_test() {
     let t_ex = exact('t');
     let src = "test".chars().peekable();
-    let mut and_p = and(&t_ex);
+    let mut and_p = and(t_ex);
     let res = and_p.parse(src);
     assert!(res.is_ok());
     if let Ok(((), ctx)) = res {
@@ -256,15 +256,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
     }
 }
 
-pub fn not<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> NotParser<I, P> {
-    NotParser { p: p.clone() }
+pub fn not<I: Clone, P: Parser<Input=I>>(p: P) -> NotParser<I, P> {
+    NotParser { p: p }
 }
 
 #[test]
 fn not_test() {
     let t_ex = exact('t');
     let src = "te".chars().peekable();
-    let mut not_p = not(&t_ex);
+    let mut not_p = not(t_ex);
     let res = not_p.parse(src);
     assert!(res.is_err());
     if let Err((_, ctx)) = res {
@@ -291,15 +291,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
     }
 }
 
-pub fn option<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> OptionParser<I, P> {
-    OptionParser { p : p.clone() }
+pub fn option<I: Clone, P: Parser<Input=I>>(p: P) -> OptionParser<I, P> {
+    OptionParser { p : p }
 }
 
 #[test]
 fn option_test() {
     let str_test = string("tes");
     let src = "test".chars().peekable();
-    let mut opt = option(&str_test);
+    let mut opt = option(str_test);
     let res = opt.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
@@ -309,7 +309,7 @@ fn option_test() {
 
     let str_test = string("example");
     let src = "test".chars().peekable();
-    let mut opt = option(&str_test);
+    let mut opt = option(str_test);
     let res = opt.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
@@ -347,15 +347,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
     }
 }
 
-pub fn many<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> ManyParser<I, P> {
-    ManyParser { p: p.clone() }
+pub fn many<I: Clone, P: Parser<Input=I>>(p: P) -> ManyParser<I, P> {
+    ManyParser { p: p }
 }
 
 #[test]
 fn many_test() {
     let a_ex = exact('a');
     let src = "aaaabb".chars().peekable();
-    let mut many_p = many(&a_ex);
+    let mut many_p = many(a_ex);
     let res: Result<(Vec<_>, _), _> = many_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -365,7 +365,7 @@ fn many_test() {
 
     let a_ex = exact('a');
     let src = "bb".chars().peekable();
-    let mut many_p = many(&a_ex);
+    let mut many_p = many(a_ex);
     let res: Result<(Vec<_>, _), _> = many_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -407,15 +407,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
     }
 }
 
-pub fn many1<I: Clone, P: Clone + Parser<Input=I>>(p : &P) -> Many1Parser<I, P> {
-    Many1Parser { p : p.clone() }
+pub fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1Parser<I, P> {
+    Many1Parser { p : p }
 }
 
 #[test]
 fn many1_parser() {
     let a_ex = exact('a');
     let src = "aaaabb".chars().peekable();
-    let mut many1_p = many1(&a_ex);
+    let mut many1_p = many1(a_ex);
     let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -425,7 +425,7 @@ fn many1_parser() {
 
     let a_ex = exact('a');
     let src = "bb".chars().peekable();
-    let mut many1_p = many1(&a_ex);
+    let mut many1_p = many1(a_ex);
     let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
     assert!(res.is_err());
     if let Err((_, ctx)) = res {
@@ -458,16 +458,16 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
     }
 }
 
-pub fn seq<I, P1, P2>(p1: &P1, p2: &P2) -> SeqParser<I, P1, P2>
-where I: Clone, P1: Clone + Parser<Input=I>, P2: Clone + Parser<Input=I> {
-    SeqParser { p1: p1.clone(), p2: p2.clone() }
+pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> SeqParser<I, P1, P2>
+where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
+    SeqParser { p1: p1, p2: p2 }
 }
 
 #[test]
 fn seq_test() {
     let a_ex = exact('a');
     let b_ex = exact('b');
-    let mut seq_ab = seq(&a_ex, &b_ex);
+    let mut seq_ab = seq(a_ex, b_ex);
     let src = "abc".chars().peekable();
     let res = seq_ab.parse(src);
     assert!(res.is_ok());
@@ -507,17 +507,17 @@ where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
     }
 }
 
-pub fn select<I, P1, P2>(p1: &P1, p2: &P2) -> SelectParser<I, P1, P2>
-where I: Clone, P1: Clone + Parser<Input=I>,
-                P2: Clone + Parser<Input=I, Output=P1::Output> {
-    SelectParser { p1: p1.clone(), p2: p2.clone() }
+pub fn select<I, P1, P2>(p1: P1, p2: P2) -> SelectParser<I, P1, P2>
+where I: Clone, P1: Parser<Input=I>,
+                P2: Parser<Input=I, Output=P1::Output> {
+    SelectParser { p1: p1, p2: p2 }
 }
 
 #[test]
 fn select_test() {
     let a_ex = exact('a');
     let b_ex = exact('b');
-    let mut sel_ab = select(&a_ex, &b_ex);
+    let mut sel_ab = select(a_ex, b_ex);
     let src = "abc".chars().peekable();
     let res = sel_ab.parse(src);
     assert!(res.is_ok());
@@ -560,16 +560,16 @@ impl <I: Clone, P: Parser<Input=I>> Parser for SuccessParser<I, P> {
     }
 }
 
-pub fn success<I, P>(p: &P) -> SuccessParser<I, P>
-where I: Clone, P: Clone + Parser<Input=I> {
-    SuccessParser { p : p.clone() }
+pub fn success<I, P>(p: P) -> SuccessParser<I, P>
+where I: Clone, P: Parser<Input=I> {
+    SuccessParser { p : p }
 }
 
 #[test]
 fn success_test() {
-    let seq_ab = seq(&exact('a'), &exact('b'));
+    let seq_ab = seq(exact('a'), exact('b'));
     let src = "abc".chars().peekable();
-    let res = success(&seq_ab).parse(src);
+    let res = success(seq_ab).parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
         assert_eq!((), r);
@@ -580,17 +580,17 @@ fn success_test() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::iter::{Iterator, Peekable};
+    use std::iter::{Iterator};
 
     #[test]
     fn digits_test() {
         let non_z = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
         let non_zero = set(&non_z);
-        let digit = select(&exact('0'), &non_zero);
-        let dig_head = seq(&seq(&non_zero, &option(&digit)), &option(&digit));
-        let dig_tail = seq(&seq(&seq(&exact(','), &digit), &digit), &digit);
-        let zero = success(&seq(&exact('0'), &end()));
-        let mut digits = select(&zero, &success(&seq(&seq(&dig_head, &many(&dig_tail)), &end())));
+        let digit = select(exact('0'), non_zero.clone());
+        let dig_head = seq(seq(non_zero, option(digit.clone())), option(digit.clone()));
+        let dig_tail = seq(seq(seq(exact(','), digit.clone()), digit.clone()), digit);
+        let zero = success(seq(exact('0'), end()));
+        let mut digits = select(zero, success(seq(seq(dig_head, many(dig_tail)), end())));
 
         for s in ["0", "1", "1,234"].iter() {
             let src = s.chars().peekable();
