@@ -197,7 +197,38 @@ fn set_test() {
     }
 }
 
+struct AndParser<I: Clone, P: Parser<Input=I>> {
+    p: P,
+}
+impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
+    type Output = ();
+    type Input = P::Input;
 
+    fn parse<I>(&self, mut src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+        let save = src.clone();
+        match self.p.parse(src) {
+            Ok((_, _)) => Ok(((), save)),
+            Err((e, _)) => Err((e, save))
+        }
+    }
+}
+fn and<I: Clone, P: Parser<Input=I>>(p: P) -> AndParser<I, P> {
+    AndParser { p : p }
+}
+
+#[test]
+fn and_test() {
+    let t_ex = exact('t');
+    let src = "test".chars().peekable();
+    let and_p = and(t_ex);
+    let res = and_p.parse(src);
+    assert!(res.is_ok());
+    if let Ok(((), ctx)) = res {
+        assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
+    }
+}
 
 #[cfg(not(test))]
 fn main() {}
