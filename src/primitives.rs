@@ -132,7 +132,7 @@ pub struct StringParser<'a> {
     ss: &'a str
 }
 impl <'a> Parser for StringParser<'a> {
-    type Output = ();
+    type Output = String;
     type Input = char;
     fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
@@ -144,7 +144,7 @@ impl <'a> Parser for StringParser<'a> {
             }
             let _ = src.next();
         }
-        Ok(((), src))
+        Ok((self.ss.to_string(), src))
     }
 }
 
@@ -159,7 +159,8 @@ fn string_test() {
     let mut parser = string("tes");
     let res = parser.parse(src);
     assert!(res.is_ok());
-    if let Ok(((), ctx)) = res {
+    if let Ok((r, ctx)) = res {
+        assert_eq!("tes".to_string(), r);
         assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
     }
 }
@@ -168,8 +169,8 @@ fn string_test() {
 pub struct SetParser<'a, T: 'a + PartialEq> {
     ss: &'a [T],
 }
-impl <'a, T: PartialEq> Parser for SetParser<'a, T> {
-    type Output = ();
+impl <'a, T: PartialEq + Clone> Parser for SetParser<'a, T> {
+    type Output = T;
     type Input = T;
     fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
@@ -180,7 +181,7 @@ impl <'a, T: PartialEq> Parser for SetParser<'a, T> {
         for c in self.ss {
             if src.peek() == Some(c) {
                 let _ = src.next();
-                return Ok(((), src));
+                return Ok((c.clone(), src));
             }
         }
         Err((Error::Expect, src))
@@ -198,7 +199,7 @@ fn set_test() {
     let src = "test".chars().peekable();
     let res = p.parse(src);
     assert!(res.is_ok());
-    if let Ok(((), ctx)) = res {
+    if let Ok(('t', ctx)) = res {
         assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
     }
 }
@@ -304,7 +305,7 @@ fn option_test() {
     let res = opt.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
-        assert_eq!((), r.unwrap());
+        assert_eq!("tes".to_string(), r.unwrap());
         assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
     }
 
@@ -587,7 +588,7 @@ mod tests {
     fn digits_test() {
         let non_z = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
         let non_zero = set(&non_z);
-        let digit = select(success(exact('0')), non_zero.clone());
+        let digit = select(exact('0'), non_zero.clone());
         let dig_head = seq(seq(non_zero, option(digit.clone())), option(digit.clone()));
         let dig_tail = seq(seq(seq(exact(','), digit.clone()), digit.clone()), digit);
         let zero = success(seq(exact('0'), end()));
