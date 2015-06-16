@@ -473,5 +473,60 @@ fn seq_test() {
     }
 }
 
+struct SelectParser<I, P1, P2>
+where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I, Output=P1::Output> {
+    p1: P1,
+    p2: P2,
+}
+
+impl <In, P1, P2> Parser for SelectParser<In, P1, P2>
+where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
+    type Output = P1::Output;
+    type Input = In;
+
+    fn parse<I>(&self, src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+
+        match self.p1.parse(src) {
+            Ok((r, ctx)) => Ok((r, ctx)),
+            Err((_, ctx)) => self.p2.parse(ctx),
+        }
+    }
+}
+
+fn select<I, P1, P2>(p1: P1, p2: P2) -> SelectParser<I, P1, P2>
+where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I, Output=P1::Output> {
+    SelectParser { p1: p1, p2: p2 }
+}
+
+#[test]
+fn select_test() {
+    let a_ex = exact('a');
+    let b_ex = exact('b');
+    let sel_ab = select(a_ex, b_ex);
+    let src = "abc".chars().peekable();
+    let res = sel_ab.parse(src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!((), r);
+        assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
+    }
+    let src = "bac".chars().peekable();
+    let res = sel_ab.parse(src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!((), r);
+        assert_eq!(vec!['a', 'c'], ctx.collect::<Vec<_>>());
+    }
+
+    let src = "cd".chars().peekable();
+    let res = sel_ab.parse(src);
+    assert!(res.is_err());
+    if let Err((_, ctx)) = res {
+        assert_eq!(vec!['c', 'd'], ctx.collect::<Vec<_>>());
+    }
+}
+
 #[cfg(not(test))]
 fn main() {}
