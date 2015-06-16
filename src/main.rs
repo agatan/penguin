@@ -1,171 +1,149 @@
-use std::str::FromStr;
+use std::iter::{Iterator, Peekable};
 
-trait Range<T> {
-    fn empty(&self) -> bool;
-    fn front(&self) -> &T;
-    fn pop_front(&mut self);
-    fn save(&self) -> Self;
+enum Error {
+    Expect
 }
 
-impl <'a, T> Range<T> for &'a [T] {
-    fn empty(&self) -> bool {
-        self.len() == 0
-    }
 
-    fn front(&self) -> &T {
-        &self[0]
-    }
+type ParseResult<Res, P> = Result<(Res, P), (Error, P)>;
 
-    fn pop_front(&mut self) {
-        *self = &self[1..];
-    }
-
-    fn save(&self) -> Self {
-        self.clone()
-    }
-}
-
-fn from_str(src: &str) -> Vec<char> {
-    src.chars().collect::<Vec<_>>()
-}
-
-#[derive(PartialEq, Debug)]
-struct ParseContext<R> {
-    ctx: R
-}
-
-impl <R> ParseContext<R> {
-    fn new(r: R) -> Self {
-        ParseContext { ctx : r }
-    }
-}
-
-type ParseResult<Res, R> = Result<Res, ParseContext<R>>;
-
-fn any<T, R: Range<T>>(r: &mut R) -> ParseResult<bool, R> {
-    if r.empty() {
-        Err(ParseContext::new(r.save()))
+fn any<T, I>(mut src: Peekable<I>) -> ParseResult<bool, Peekable<I>>
+    where I: Iterator<Item=T> {
+    if src.peek().is_none() {
+        Err((Error::Expect, src))
     } else {
-        r.pop_front();
-        Ok(true)
+        let _ = src.next();
+        Ok((true, src))
     }
 }
 
 #[test]
 fn any_test() {
-    let src = "test";
-    let mut r: &[char] = &(src.chars().collect::<Vec<_>>());
-    assert!(any(&mut r).is_ok());
-    assert_eq!(*r.front(), 'e');
+    let src = "test".chars().peekable();
+    if let Ok((res, ctx)) = any(src) {
+        assert!(res);
+        assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+    } else {
+        panic!("any returns Err");
+    }
 
-    let src = "";
-    let mut r: &[char] = &(src.chars().collect::<Vec<_>>());
-    assert!(any(&mut r).is_err());
+    let src = vec![1, 2, 3];
+    let src2 = src.iter().peekable();
+    if let Ok((res, ctx)) = any(src2) {
+        assert!(res);
+        assert_eq!(vec![&2, &3], ctx.collect::<Vec<_>>());
+    } else {
+        panic!("any returns Err");
+    }
 }
 
-fn exact<T: PartialEq, R: Range<T>>(t: T, r: &mut R) -> ParseResult<bool, R> {
-    if !r.empty() && *r.front() == t {
-        r.pop_front();
-        Ok(true)
+fn exact<T, I>(t: &T, mut src: Peekable<I>) -> ParseResult<(), Peekable<I>>
+    where T: PartialEq + Clone, I: Iterator<Item=T> {
+    if src.peek() == Some(t) {
+        let _ = src.next();
+        Ok(((), src))
     } else {
-        Err(ParseContext::new(r.save()))
+        Err((Error::Expect, src))
     }
 }
 
 #[test]
 fn exact_test() {
-    let src = "test";
-    let mut r : &[char] = &(from_str(src));
-    assert!(exact('t', &mut r).unwrap());
-    assert_eq!(*r.front(), 'e');
-}
-
-fn end<T, R: Range<T>>(r: &R) -> ParseResult<bool, R> {
-    if r.empty() {
-        Ok(true)
+    let src = "test".chars().peekable();
+    if let Ok(((), ctx)) = exact(&'t', src) {
+        assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
     } else {
-        Err(ParseContext::new(r.save()))
+        panic!("exact return Err");
     }
 }
+
+fn end<T, I>(mut src: Peekable<I>) -> ParseResult<(), Peekable<I>>
+    where I: Iterator<Item=T> {
+    if src.peek().is_none() {
+        Ok(((), src))
+    } else {
+        Err((Error::Expect, src))
+    }
+    }
 
 #[test]
 fn end_test() {
-    let r : &[char] = &(from_str(""));
-    assert!(end(&r).unwrap());
+    let src = "".chars().peekable();
+    assert!(end(src).is_ok());
+    let src = "a".chars().peekable();
+    assert!(!end(src).is_ok());
 }
 
-fn string<R: Range<char>>(s: &str, src: &mut R) -> ParseResult<bool, R> {
-    let before = src.save();
+fn string<I>(s: &str, mut src: Peekable<I>) -> ParseResult<(), Peekable<I>>
+    where I: Clone + Iterator<Item=char> {
+    let save = src.clone();
     for c in s.chars() {
-        if src.empty() || *src.front() != c {
-            return Err(ParseContext::new(before));
+        if src.peek().is_none() || src.peek() != Some(&c) {
+            return Err((Error::Expect, save));
         }
-        src.pop_front();
+        let _ = src.next();
     }
-    Ok(true)
+    Ok(((), src))
 }
 
 #[test]
 fn string_test() {
-    let mut r : &[char] = &(from_str("test"));
-    assert!(string("tes", &mut r).unwrap());
-    assert!(exact('t', &mut r).unwrap());
-    assert!(end(&r).unwrap());
-
-    let mut r : &[char] = &(from_str("test"));
-    let res = string("ex", &mut r);
-    assert!(res.is_err());
-    assert_eq!(res.unwrap_err().ctx, &['t', 'e', 's', 't']);
+    let src = "test".chars().peekable();
+    let res = string("tes", src);
+    assert!(res.is_ok());
+    if let Ok(((), ctx)) = res {
+        assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
+    }
 }
 
-fn set<T: Clone + PartialEq, R: Range<T>>(ss: &[T], src: &mut R) -> ParseResult<T, R> {
-    if src.empty() {
-        return Err(ParseContext::new(src.save()));
+fn set<T, I>(ss: &[T], mut src: Peekable<I>) -> ParseResult<(), Peekable<I>>
+    where T: PartialEq, I: Iterator<Item=T> {
+    if src.peek().is_none() {
+        return Err((Error::Expect, src));
     }
     for c in ss {
-        if src.front() == c {
-            src.pop_front();
-            return Ok(c.clone());
+        if src.peek() == Some(c) {
+            let _ = src.next();
+            return Ok(((), src));
         }
     }
-    Err(ParseContext::new(src.save()))
+    Err((Error::Expect, src))
 }
 
 #[test]
 fn set_test() {
-    let ss = "aiueo".chars().collect::<Vec<_>>();
-    let mut src: &[char] = &(from_str("ue"));
-    assert_eq!(set(&ss, &mut src).unwrap(), 'u');
-    assert_eq!(src, &['e']);
+    let ss = vec!['s', 't', 'u'];
+    let src = "test".chars().peekable();
+    let res = set(&ss, src);
+    assert!(res.is_ok());
+    if let Ok(((), ctx)) = res {
+        assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+    }
 }
 
-fn range<T: PartialOrd + Clone, R: Range<T>>(s1: &T, s2: &T, src: &mut R) -> ParseResult<T, R> {
-    assert!(s1 < s2);
-    if src.empty() {
-        return Err(ParseContext::new(src.save()));
+fn range<T, I>(s1: &T, s2: &T, mut src: Peekable<I>)
+    -> ParseResult<T, Peekable<I>>
+    where T: PartialOrd + Clone, I: Iterator<Item=T> {
+    if src.peek().is_none() {
+        return Err((Error::Expect, src));
     }
-    let front = src.front().clone();
-    if s1 <= &front && &front < s2 {
-        src.pop_front();
-        Ok(front)
-    } else {
-        Err(ParseContext::new(src.save()))
+    let c = src.peek().unwrap().clone();
+    if s1 <= &c && &c < s2 {
+        let _ = src.next();
+        return Ok((c, src));
     }
+    Err((Error::Expect, src))
 }
 
 #[test]
 fn range_test() {
     let s1 = 'a';
     let s2 = 'e';
-    let mut src : &[char] = &(from_str("compile"));
-    assert_eq!(range(&s1, &s2, &mut src).unwrap(), 'c');
-}
-
-fn main() {
-    let mut v: &[isize] = &[1, 2, 3, 4];
-    let mut v2 = v.save();
-    v.pop_front();
-    println!("{:?}", v);
-    println!("{:?}", v2);
-    println!("Hello, world!");
+    let src = "com".chars().peekable();
+    let res = range(&s1, &s2, src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!('c', r);
+        assert_eq!(vec!['o', 'm'], ctx.collect::<Vec<_>>());
+    }
 }
