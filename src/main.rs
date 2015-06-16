@@ -204,7 +204,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
     type Output = ();
     type Input = P::Input;
 
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
         let save = src.clone();
@@ -237,7 +237,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
     type Output = ();
     type Input = P::Input;
 
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -272,7 +272,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
     type Output = Option<P::Output>;
     type Input = P::Input;
 
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -317,11 +317,10 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
     type Output = Vec<P::Output>;
     type Input = P::Input;
 
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
-        let save = src.clone();
         let mut ret = vec![];
         let mut s = src;
 
@@ -331,7 +330,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
                     s = ctx;
                     ret.push(r);
                 },
-                Err((e, ctx)) => {
+                Err((_, ctx)) => {
                     return Ok((ret, ctx));
                 }
             }
@@ -362,6 +361,64 @@ fn many_test() {
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
         assert!(v.is_empty());
+        assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+    }
+}
+
+struct Many1Parser<I: Clone, P: Parser<Input=I>> {
+    p: P,
+}
+impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
+    type Output = Vec<P::Output>;
+    type Input = P::Input;
+
+    fn parse<I>(&self, src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+
+        let save = src.clone();
+        let mut ret = vec![];
+        let mut s = src;
+
+        loop {
+            match self.p.parse(s) {
+                Ok((r, ctx)) => {
+                    s = ctx;
+                    ret.push(r);
+                },
+                Err((e, ctx)) => {
+                    if ret.is_empty() {
+                        return Err((e, save));
+                    }
+                    return Ok((ret, ctx));
+                }
+            }
+        }
+    }
+}
+
+fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1Parser<I, P> {
+    Many1Parser { p : p }
+}
+
+#[test]
+fn many1_parser() {
+    let a_ex = exact('a');
+    let src = "aaaabb".chars().peekable();
+    let many1_p = many1(a_ex);
+    let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
+    assert!(res.is_ok());
+    if let Ok((v, ctx)) = res {
+        assert_eq!(vec![(), (), (), ()], v);
+        assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+    }
+
+    let a_ex = exact('a');
+    let src = "bb".chars().peekable();
+    let many1_p = many1(a_ex);
+    let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
+    assert!(res.is_err());
+    if let Err((_, ctx)) = res {
         assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
     }
 }
