@@ -27,12 +27,12 @@ where F: FnMut(P::Output) -> B {
 
 #[test]
 fn map_test() {
-    let mut m = map(exact('a'), |_| { 1 });
+    let mut m = map(exact('a'), |r| { format!("matched: {}", r) });
     let src = "abc".chars().peekable();
     let res = m.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
-        assert_eq!(1, r);
+        assert_eq!("matched: a".to_string(), r);
         assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
     }
 }
