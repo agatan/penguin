@@ -10,7 +10,7 @@ pub type ParseResult<Res, P> = Result<(Res, P), (Error, P)>;
 pub trait Parser {
     type Output;
     type Input;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> + Clone;
 }
@@ -22,7 +22,7 @@ pub struct AnyParser<I> {
 impl <In> Parser for AnyParser<In> {
     type Output = ();
     type Input = In;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> {
         if src.peek().is_none() {
@@ -41,7 +41,7 @@ pub fn any<I>() -> AnyParser<I> {
 #[test]
 fn any_test() {
     let src = "test".chars().peekable();
-    let any_parser = any();
+    let mut any_parser = any();
     if let Ok((res, ctx)) = any_parser.parse(src) {
         assert!(res == ());
         assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
@@ -51,7 +51,7 @@ fn any_test() {
 
     let src = vec![1, 2, 3];
     let src2 = src.iter().peekable();
-    let any_parser = any();
+    let mut any_parser = any();
     if let Ok((res, ctx)) = any_parser.parse(src2) {
         assert!(res == ());
         assert_eq!(vec![&2, &3], ctx.collect::<Vec<_>>());
@@ -67,7 +67,7 @@ pub struct ExactParser<I> {
 impl <In: PartialEq> Parser for ExactParser<In> {
     type Output = ();
     type Input = In;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> {
         if src.peek() == Some(&self.needle) {
@@ -86,7 +86,7 @@ pub fn exact<T>(t: T) -> ExactParser<T> where T: PartialEq {
 #[test]
 fn exact_test() {
     let src = "test".chars().peekable();
-    let parser = exact('t');
+    let mut parser = exact('t');
     if let Ok(((), ctx)) = parser.parse(src) {
         assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
     } else {
@@ -101,7 +101,7 @@ pub struct EndParser<I> {
 impl <In> Parser for EndParser<In> {
     type Output = ();
     type Input = In;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> {
         if src.peek().is_none() {
@@ -119,7 +119,7 @@ pub fn end<I>() -> EndParser<I> {
 
 #[test]
 fn end_test() {
-    let end_parser = end();
+    let mut end_parser = end();
     let src = "".chars().peekable();
     assert!(end_parser.parse(src).is_ok());
     let src = "a".chars().peekable();
@@ -133,7 +133,7 @@ pub struct StringParser<'a> {
 impl <'a> Parser for StringParser<'a> {
     type Output = ();
     type Input = char;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
         let save = src.clone();
@@ -155,7 +155,7 @@ pub fn string<'a>(s: &'a str) -> StringParser<'a> {
 #[test]
 fn string_test() {
     let src = "test".chars().peekable();
-    let parser = string("tes");
+    let mut parser = string("tes");
     let res = parser.parse(src);
     assert!(res.is_ok());
     if let Ok(((), ctx)) = res {
@@ -170,7 +170,7 @@ pub struct SetParser<'a, T: 'a + PartialEq> {
 impl <'a, T: PartialEq> Parser for SetParser<'a, T> {
     type Output = ();
     type Input = T;
-    fn parse<I>(&self, mut src: Peekable<I>)
+    fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
         if src.peek().is_none() {
@@ -193,7 +193,7 @@ pub fn set<'a, T: PartialEq>(ss: &'a [T]) -> SetParser<'a, T> {
 #[test]
 fn set_test() {
     let ss = vec!['s', 't', 'u'];
-    let p = set(&ss);
+    let mut p = set(&ss);
     let src = "test".chars().peekable();
     let res = p.parse(src);
     assert!(res.is_ok());
@@ -210,7 +210,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
     type Output = ();
     type Input = P::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
         let save = src.clone();
@@ -228,7 +228,7 @@ pub fn and<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> AndParser<I, P> {
 fn and_test() {
     let t_ex = exact('t');
     let src = "test".chars().peekable();
-    let and_p = and(&t_ex);
+    let mut and_p = and(&t_ex);
     let res = and_p.parse(src);
     assert!(res.is_ok());
     if let Ok(((), ctx)) = res {
@@ -244,7 +244,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
     type Output = ();
     type Input = P::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -264,7 +264,7 @@ pub fn not<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> NotParser<I, P> {
 fn not_test() {
     let t_ex = exact('t');
     let src = "te".chars().peekable();
-    let not_p = not(&t_ex);
+    let mut not_p = not(&t_ex);
     let res = not_p.parse(src);
     assert!(res.is_err());
     if let Err((_, ctx)) = res {
@@ -280,7 +280,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
     type Output = Option<P::Output>;
     type Input = P::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -299,7 +299,7 @@ pub fn option<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> OptionParser<I, P>
 fn option_test() {
     let str_test = string("tes");
     let src = "test".chars().peekable();
-    let opt = option(&str_test);
+    let mut opt = option(&str_test);
     let res = opt.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
@@ -309,7 +309,7 @@ fn option_test() {
 
     let str_test = string("example");
     let src = "test".chars().peekable();
-    let opt = option(&str_test);
+    let mut opt = option(&str_test);
     let res = opt.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
@@ -326,7 +326,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
     type Output = Vec<P::Output>;
     type Input = P::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -355,7 +355,7 @@ pub fn many<I: Clone, P: Parser<Input=I> + Clone>(p: &P) -> ManyParser<I, P> {
 fn many_test() {
     let a_ex = exact('a');
     let src = "aaaabb".chars().peekable();
-    let many_p = many(&a_ex);
+    let mut many_p = many(&a_ex);
     let res: Result<(Vec<_>, _), _> = many_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -365,7 +365,7 @@ fn many_test() {
 
     let a_ex = exact('a');
     let src = "bb".chars().peekable();
-    let many_p = many(&a_ex);
+    let mut many_p = many(&a_ex);
     let res: Result<(Vec<_>, _), _> = many_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -382,7 +382,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
     type Output = Vec<P::Output>;
     type Input = P::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -415,7 +415,7 @@ pub fn many1<I: Clone, P: Clone + Parser<Input=I>>(p : &P) -> Many1Parser<I, P> 
 fn many1_parser() {
     let a_ex = exact('a');
     let src = "aaaabb".chars().peekable();
-    let many1_p = many1(&a_ex);
+    let mut many1_p = many1(&a_ex);
     let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
@@ -425,7 +425,7 @@ fn many1_parser() {
 
     let a_ex = exact('a');
     let src = "bb".chars().peekable();
-    let many1_p = many1(&a_ex);
+    let mut many1_p = many1(&a_ex);
     let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
     assert!(res.is_err());
     if let Err((_, ctx)) = res {
@@ -444,7 +444,7 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
     type Output = (P1::Output, P2::Output);
     type Input = P1::Input;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -467,7 +467,7 @@ where I: Clone, P1: Clone + Parser<Input=I>, P2: Clone + Parser<Input=I> {
 fn seq_test() {
     let a_ex = exact('a');
     let b_ex = exact('b');
-    let seq_ab = seq(&a_ex, &b_ex);
+    let mut seq_ab = seq(&a_ex, &b_ex);
     let src = "abc".chars().peekable();
     let res = seq_ab.parse(src);
     assert!(res.is_ok());
@@ -496,7 +496,7 @@ where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
     type Output = P1::Output;
     type Input = In;
 
-    fn parse<I>(&self, src: Peekable<I>)
+    fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
@@ -517,7 +517,7 @@ where I: Clone, P1: Clone + Parser<Input=I>,
 fn select_test() {
     let a_ex = exact('a');
     let b_ex = exact('b');
-    let sel_ab = select(&a_ex, &b_ex);
+    let mut sel_ab = select(&a_ex, &b_ex);
     let src = "abc".chars().peekable();
     let res = sel_ab.parse(src);
     assert!(res.is_ok());
@@ -550,7 +550,7 @@ impl <I: Clone, P: Parser<Input=I>> Parser for SuccessParser<I, P> {
     type Output = ();
     type Input = I;
 
-    fn parse<In>(&self, src: Peekable<In>)
+    fn parse<In>(&mut self, src: Peekable<In>)
         -> ParseResult<Self::Output, Peekable<In>>
         where In: Clone + Iterator<Item=Self::Input> {
         match self.p.parse(src) {
@@ -590,7 +590,7 @@ mod tests {
         let dig_head = seq(&seq(&non_zero, &option(&digit)), &option(&digit));
         let dig_tail = seq(&seq(&seq(&exact(','), &digit), &digit), &digit);
         let zero = success(&seq(&exact('0'), &end()));
-        let digits = select(&zero, &success(&seq(&seq(&dig_head, &many(&dig_tail)), &end())));
+        let mut digits = select(&zero, &success(&seq(&seq(&dig_head, &many(&dig_tail)), &end())));
 
         for s in ["0", "1", "1,234"].iter() {
             let src = s.chars().peekable();
