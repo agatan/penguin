@@ -64,15 +64,15 @@ fn any_test() {
 pub struct ExactParser<I> {
     needle: I,
 }
-impl <In: PartialEq> Parser for ExactParser<In> {
-    type Output = ();
+impl <In: PartialEq + Clone> Parser for ExactParser<In> {
+    type Output = In;
     type Input = In;
     fn parse<I>(&mut self, mut src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Iterator<Item=Self::Input> {
         if src.peek() == Some(&self.needle) {
             let _ = src.next();
-            Ok(((), src))
+            Ok((self.needle.clone(), src))
         } else {
             Err((Error::Expect, src))
         }
@@ -87,7 +87,8 @@ pub fn exact<T>(t: T) -> ExactParser<T> where T: PartialEq {
 fn exact_test() {
     let src = "test".chars().peekable();
     let mut parser = exact('t');
-    if let Ok(((), ctx)) = parser.parse(src) {
+    if let Ok((r, ctx)) = parser.parse(src) {
+        assert_eq!('t', r);
         assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
     } else {
         panic!("exact return Err");
@@ -359,7 +360,7 @@ fn many_test() {
     let res: Result<(Vec<_>, _), _> = many_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
-        assert_eq!(vec![(), (), (), ()], v);
+        assert_eq!(vec!['a', 'a', 'a', 'a'], v);
         assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
     }
 
@@ -419,7 +420,7 @@ fn many1_parser() {
     let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
     assert!(res.is_ok());
     if let Ok((v, ctx)) = res {
-        assert_eq!(vec![(), (), (), ()], v);
+        assert_eq!(vec!['a', 'a', 'a', 'a'], v);
         assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
     }
 
@@ -472,7 +473,7 @@ fn seq_test() {
     let res = seq_ab.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
-        assert_eq!(((), ()), r);
+        assert_eq!(('a', 'b'), r);
         assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
     }
 
@@ -522,14 +523,14 @@ fn select_test() {
     let res = sel_ab.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
-        assert_eq!((), r);
+        assert_eq!('a', r);
         assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
     }
     let src = "bac".chars().peekable();
     let res = sel_ab.parse(src);
     assert!(res.is_ok());
     if let Ok((r, ctx)) = res {
-        assert_eq!((), r);
+        assert_eq!('b', r);
         assert_eq!(vec!['a', 'c'], ctx.collect::<Vec<_>>());
     }
 
@@ -586,11 +587,11 @@ mod tests {
     fn digits_test() {
         let non_z = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
         let non_zero = set(&non_z);
-        let digit = select(exact('0'), non_zero.clone());
+        let digit = select(success(exact('0')), non_zero.clone());
         let dig_head = seq(seq(non_zero, option(digit.clone())), option(digit.clone()));
         let dig_tail = seq(seq(seq(exact(','), digit.clone()), digit.clone()), digit);
         let zero = success(seq(exact('0'), end()));
-        let mut digits = select(zero, success(seq(seq(dig_head, many(dig_tail)), end())));
+        let mut digits = select(success(zero), success(seq(seq(dig_head, many(dig_tail)), end())));
 
         for s in ["0", "1", "1,234"].iter() {
             let src = s.chars().peekable();
