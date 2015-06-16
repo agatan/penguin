@@ -1,4 +1,4 @@
-# `rparse` is a parser combinator library written in Rust
+# parser combinator library for Rust
 
 ## feature
 - Using `rparse`, you can easily define complex parser with combination of some simple parser.
