@@ -20,7 +20,7 @@ where F: FnMut(P::Output) -> B {
     }
 }
 
-pub fn map<B, P: Parser + Clone, F>(p: P, f: F) -> Map<P, F>
+pub fn map<B, P: Parser, F>(p: P, f: F) -> Map<P, F>
 where F: FnMut(P::Output) -> B {
     Map { p: p, f: f }
 }
