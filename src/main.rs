@@ -423,5 +423,55 @@ fn many1_parser() {
     }
 }
 
+struct SeqParser<I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I>> {
+    p1: P1,
+    p2: P2,
+}
+
+impl <In: Clone, P1, P2> Parser for SeqParser<In, P1, P2>
+where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
+    type Output = (P1::Output, P2::Output);
+    type Input = P1::Input;
+
+    fn parse<I>(&self, src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+
+        let save = src.clone();
+        let (r1, ctx) = try!(self.p1.parse(src));
+        let (r2, ctx) = match self.p2.parse(ctx) {
+            Ok((r2, ctx)) => (r2, ctx),
+            Err((e, _)) => return Err((e, save)),
+        };
+        Ok(((r1, r2), ctx))
+    }
+}
+
+fn seq<I, P1, P2>(p1: P1, p2: P2) -> SeqParser<I, P1, P2>
+where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
+    SeqParser { p1: p1, p2: p2 }
+}
+
+#[test]
+fn seq_test() {
+    let a_ex = exact('a');
+    let b_ex = exact('b');
+    let seq_ab = seq(a_ex, b_ex);
+    let src = "abc".chars().peekable();
+    let res = seq_ab.parse(src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!(((), ()), r);
+        assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
+    }
+
+    let src = "acd".chars().peekable();
+    let res = seq_ab.parse(src);
+    assert!(res.is_err());
+    if let Err((_, ctx)) = res {
+        assert_eq!(vec!['a', 'c', 'd'], ctx.collect::<Vec<_>>());
+    }
+}
+
 #[cfg(not(test))]
 fn main() {}
