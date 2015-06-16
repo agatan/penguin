@@ -265,5 +265,50 @@ fn not_test() {
     }
 }
 
+struct OptionParser<I: Clone, P: Parser<Input=I>> {
+    p: P,
+}
+impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
+    type Output = Option<P::Output>;
+    type Input = P::Input;
+
+    fn parse<I>(&self, mut src: Peekable<I>)
+        -> ParseResult<Self::Output, Peekable<I>>
+        where I: Clone + Iterator<Item=Self::Input> {
+
+        match self.p.parse(src) {
+            Ok((r, ctx)) => Ok((Some(r), ctx)),
+            Err((_, ctx)) => Ok((None, ctx)),
+        }
+    }
+}
+
+fn option<I: Clone, P: Parser<Input=I>>(p: P) -> OptionParser<I, P> {
+    OptionParser { p : p }
+}
+
+#[test]
+fn option_test() {
+    let str_test = string("tes");
+    let src = "test".chars().peekable();
+    let opt = option(str_test);
+    let res = opt.parse(src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!((), r.unwrap());
+        assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
+    }
+
+    let str_test = string("example");
+    let src = "test".chars().peekable();
+    let opt = option(str_test);
+    let res = opt.parse(src);
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert!(r.is_none());
+        assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
+    }
+}
+
 #[cfg(not(test))]
 fn main() {}
