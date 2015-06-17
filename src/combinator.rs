@@ -1,7 +1,14 @@
+//! Parser combinators are defined here.
+//! Using them, you can make a new parser of some primitive parsers.
+//! Parsers made of some primitive parsers are also parser,
+//! so you can combine them with any other parsers.
+
 use primitives::*;
 
 use std::iter::{Iterator, Peekable};
 
+#[derive(Debug, Clone)]
+/// Map a return value of the parser with the function.
 pub struct Map<P, F> {
     p: P,
     f: F,
@@ -20,6 +27,7 @@ where F: FnMut(P::Output) -> B {
     }
 }
 
+/// map a return value of the parser with the function.
 pub fn map<B, P: Parser, F>(p: P, f: F) -> Map<P, F>
 where F: FnMut(P::Output) -> B {
     Map { p: p, f: f }

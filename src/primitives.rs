@@ -1,9 +1,12 @@
+//! primitive parsers are defined here.
+
 use std::iter::{Iterator, Peekable};
 use std::marker::PhantomData;
 
 /// Parse Error. This is still a placeholder.
 /// This will be more useful error message in the future.
 pub enum Error {
+    /// represent the expected token there.
     Expect
 }
 
@@ -28,6 +31,7 @@ pub trait Parser {
 }
 
 #[derive(Debug, Clone)]
+/// A most primitive parser. This matches all tokens.
 pub struct AnyParser<I> {
     _mark: PhantomData<I>
 }
@@ -46,6 +50,7 @@ impl <In> Parser for AnyParser<In> {
     }
 }
 
+/// Make a parser that matches all tokens.
 pub fn any<I>() -> AnyParser<I> {
     AnyParser { _mark: PhantomData }
 }
@@ -73,6 +78,7 @@ fn any_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches a token that is equal to the needle.
 pub struct ExactParser<I> {
     needle: I,
 }
@@ -91,6 +97,7 @@ impl <In: PartialEq + Clone> Parser for ExactParser<In> {
     }
 }
 
+/// Make a parser. The parser matches a token that is equal to the argument.
 pub fn exact<T>(t: T) -> ExactParser<T> where T: PartialEq {
     ExactParser { needle: t }
 }
@@ -108,6 +115,7 @@ fn exact_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches when the source is empty.
 pub struct EndParser<I> {
     _mark: PhantomData<I>,
 }
@@ -125,7 +133,7 @@ impl <In> Parser for EndParser<In> {
     }
 }
 
-
+/// Make a parser that matches when the source is empty.
 pub fn end<I>() -> EndParser<I> {
     EndParser { _mark: PhantomData }
 }
@@ -140,6 +148,7 @@ fn end_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser for string. This matches string, and consume the charactors of the source.
 pub struct StringParser<'a> {
     ss: &'a str
 }
@@ -161,6 +170,7 @@ impl <'a> Parser for StringParser<'a> {
 }
 
 
+/// Make a parser that matches the argument string.
 pub fn string<'a>(s: &'a str) -> StringParser<'a> {
     StringParser { ss: s }
 }
@@ -178,6 +188,7 @@ fn string_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches any token in the set.
 pub struct SetParser<'a, T: 'a + PartialEq> {
     ss: &'a [T],
 }
@@ -200,6 +211,7 @@ impl <'a, T: PartialEq + Clone> Parser for SetParser<'a, T> {
     }
 }
 
+/// Make a parser that matches any token in the argument set.
 pub fn set<'a, T: PartialEq>(ss: &'a [T]) -> SetParser<'a, T> {
     SetParser { ss: ss }
 }
@@ -217,6 +229,8 @@ fn set_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that doesn't cosume any token of the source.
+/// It only tests the argument parser matches following tokens.
 pub struct AndParser<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
@@ -234,6 +248,8 @@ impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
         }
     }
 }
+
+/// Make a parser that tests the argument parser matches following tokens.
 pub fn and<I: Clone, P: Parser<Input=I>>(p: P) -> AndParser<I, P> {
     AndParser { p : p }
 }
@@ -251,6 +267,8 @@ fn and_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that doesn't consume any token of the source.
+/// It only tests the argument parser won't match following tokens.
 pub struct NotParser<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
@@ -270,6 +288,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
     }
 }
 
+/// Make a parser that tests the argument parser doesn't match following tokens.
 pub fn not<I: Clone, P: Parser<Input=I>>(p: P) -> NotParser<I, P> {
     NotParser { p: p }
 }
@@ -287,6 +306,7 @@ fn not_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A optional parser.
 pub struct OptionParser<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
@@ -305,6 +325,8 @@ impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
     }
 }
 
+/// Make a optional parser. If following tokens are matched the argument parser,
+/// it returns `Some(T)`. If not, it just returns `None` and doesn't cosume tokens of the source.
 pub fn option<I: Clone, P: Parser<Input=I>>(p: P) -> OptionParser<I, P> {
     OptionParser { p : p }
 }
@@ -333,6 +355,7 @@ fn option_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches zero or more repeated patterns of the argument parser.
 pub struct ManyParser<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
@@ -361,6 +384,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
     }
 }
 
+/// Make a Many parser. It matches zero or more repeated patterns of the argument parser.
 pub fn many<I: Clone, P: Parser<Input=I>>(p: P) -> ManyParser<I, P> {
     ManyParser { p: p }
 }
@@ -389,6 +413,7 @@ fn many_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches one or more repeated patterns of the argument parser.
 pub struct Many1Parser<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
@@ -421,6 +446,7 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
     }
 }
 
+/// Make a Many1 parser. It matches one or more repeated patterns of the argument parser.
 pub fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1Parser<I, P> {
     Many1Parser { p : p }
 }
@@ -448,6 +474,7 @@ fn many1_parser() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches sequence of parser1 and parser2.
 pub struct SeqParser<I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I>> {
     p1: P1,
     p2: P2,
@@ -472,6 +499,7 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
     }
 }
 
+/// Make a parser that matches a sequence of parser1 and parser2.
 pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> SeqParser<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
     SeqParser { p1: p1, p2: p2 }
@@ -499,6 +527,7 @@ fn seq_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches either parser1 or parser2.
 pub struct SelectParser<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I, Output=P1::Output> {
     p1: P1,
@@ -521,6 +550,7 @@ where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
     }
 }
 
+/// Make a parser that matches either parser1 or parser2.
 pub fn select<I, P1, P2>(p1: P1, p2: P2) -> SelectParser<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>,
                 P2: Parser<Input=I, Output=P1::Output> {
@@ -556,6 +586,7 @@ fn select_test() {
 }
 
 #[derive(Debug, Clone)]
+/// A parser that matches a patten of the argument parser and ignores that return value.
 pub struct SuccessParser<I, P>
 where I: Clone, P: Parser<Input=I> {
     p: P,
@@ -574,6 +605,7 @@ impl <I: Clone, P: Parser<Input=I>> Parser for SuccessParser<I, P> {
     }
 }
 
+/// Make a parser that matches a pattern of the argument parser and ignores that return value.
 pub fn success<I, P>(p: P) -> SuccessParser<I, P>
 where I: Clone, P: Parser<Input=I> {
     SuccessParser { p : p }
