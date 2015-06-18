@@ -86,10 +86,10 @@ fn followed_by_test() {
 #[derive(Debug, Clone)]
 /// A parser that doesn't consume any token of the source.
 /// It only tests the argument parser won't match following tokens.
-pub struct NotParser<I: Clone, P: Parser<Input=I>> {
+pub struct NotFollowedBy<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
+impl <In: Clone, P: Parser<Input=In>> Parser for NotFollowedBy<In, P> {
     type Output = ();
     type Input = P::Input;
 
@@ -106,15 +106,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotParser<In, P> {
 }
 
 /// Make a parser that tests the argument parser doesn't match following tokens.
-pub fn not<I: Clone, P: Parser<Input=I>>(p: P) -> NotParser<I, P> {
-    NotParser { p: p }
+pub fn not_followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> NotFollowedBy<I, P> {
+    NotFollowedBy { p: p }
 }
 
 #[test]
-fn not_test() {
+fn not_followed_by_test() {
     let t_ex = exact('t');
     let src = "te".chars().peekable();
-    let mut not_p = not(t_ex);
+    let mut not_p = not_followed_by(t_ex);
     let res = not_p.parse(src);
     assert!(res.is_err());
     if let Err((_, ctx)) = res {
