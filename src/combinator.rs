@@ -368,6 +368,22 @@ where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
 }
 
 /// Make a parser that matches either parser1 or parser2.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::select;
+///
+/// let a_ex = exact('a');
+/// let b_ex = exact('b');
+/// let mut select_ab = select(a_ex, b_ex);
+/// let src = "bar".chars().peekable();
+/// let res = select_ab.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!('b', r);
+///     assert_eq!(vec!['a', 'r'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn select<I, P1, P2>(p1: P1, p2: P2) -> Select<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>,
                 P2: Parser<Input=I, Output=P1::Output> {
@@ -423,19 +439,22 @@ impl <I: Clone, P: Parser<Input=I>> Parser for Success<I, P> {
 }
 
 /// Make a parser that matches a pattern of the argument parser and ignores that return value.
+///
+/// ```
+/// use rparse::prim::*;
+/// use rparse::combinator::*;
+///
+/// let seq_ab = seq(exact('a'), exact('b'));
+/// let src = "abc".chars().peekable();
+/// let res = success(seq_ab).parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!((), r);
+///     assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn success<I, P>(p: P) -> Success<I, P>
 where I: Clone, P: Parser<Input=I> {
     Success { p : p }
 }
 
-#[test]
-fn success_test() {
-    let seq_ab = seq(exact('a'), exact('b'));
-    let src = "abc".chars().peekable();
-    let res = success(seq_ab).parse(src);
-    assert!(res.is_ok());
-    if let Ok((r, ctx)) = res {
-        assert_eq!((), r);
-        assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
-    }
-}
