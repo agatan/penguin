@@ -3,7 +3,7 @@
 //! Parsers made of some primitive parsers are also parser,
 //! so you can combine them with any other parsers.
 
-use primitives::*;
+use prim::*;
 
 use std::iter::{Iterator, Peekable};
 
