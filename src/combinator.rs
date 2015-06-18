@@ -173,10 +173,10 @@ fn option_test() {
 
 #[derive(Debug, Clone)]
 /// A parser that matches zero or more repeated patterns of the argument parser.
-pub struct ManyParser<I: Clone, P: Parser<Input=I>> {
+pub struct Many<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
+impl <In: Clone, P: Parser<Input=In>> Parser for Many<In, P> {
     type Output = Vec<P::Output>;
     type Input = P::Input;
 
@@ -202,8 +202,8 @@ impl <In: Clone, P: Parser<Input=In>> Parser for ManyParser<In, P> {
 }
 
 /// Make a Many parser. It matches zero or more repeated patterns of the argument parser.
-pub fn many<I: Clone, P: Parser<Input=I>>(p: P) -> ManyParser<I, P> {
-    ManyParser { p: p }
+pub fn many<I: Clone, P: Parser<Input=I>>(p: P) -> Many<I, P> {
+    Many { p: p }
 }
 
 #[test]
@@ -231,10 +231,10 @@ fn many_test() {
 
 #[derive(Debug, Clone)]
 /// A parser that matches one or more repeated patterns of the argument parser.
-pub struct Many1Parser<I: Clone, P: Parser<Input=I>> {
+pub struct Many1<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
+impl <In: Clone, P: Parser<Input=In>> Parser for Many1<In, P> {
     type Output = Vec<P::Output>;
     type Input = P::Input;
 
@@ -264,8 +264,8 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many1Parser<In, P> {
 }
 
 /// Make a Many1 parser. It matches one or more repeated patterns of the argument parser.
-pub fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1Parser<I, P> {
-    Many1Parser { p : p }
+pub fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1<I, P> {
+    Many1 { p : p }
 }
 
 #[test]
@@ -292,12 +292,12 @@ fn many1_parser() {
 
 #[derive(Debug, Clone)]
 /// A parser that matches sequence of parser1 and parser2.
-pub struct SeqParser<I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I>> {
+pub struct Seq<I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I>> {
     p1: P1,
     p2: P2,
 }
 
-impl <In: Clone, P1, P2> Parser for SeqParser<In, P1, P2>
+impl <In: Clone, P1, P2> Parser for Seq<In, P1, P2>
 where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
     type Output = (P1::Output, P2::Output);
     type Input = P1::Input;
@@ -317,9 +317,9 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
 }
 
 /// Make a parser that matches a sequence of parser1 and parser2.
-pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> SeqParser<I, P1, P2>
+pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> Seq<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
-    SeqParser { p1: p1, p2: p2 }
+    Seq { p1: p1, p2: p2 }
 }
 
 #[test]
@@ -345,13 +345,13 @@ fn seq_test() {
 
 #[derive(Debug, Clone)]
 /// A parser that matches either parser1 or parser2.
-pub struct SelectParser<I, P1, P2>
+pub struct Select<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I, Output=P1::Output> {
     p1: P1,
     p2: P2,
 }
 
-impl <In, P1, P2> Parser for SelectParser<In, P1, P2>
+impl <In, P1, P2> Parser for Select<In, P1, P2>
 where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
     type Output = P1::Output;
     type Input = In;
@@ -368,10 +368,10 @@ where In: Clone, P1: Parser<Input=In>, P2: Parser<Input=In, Output=P1::Output> {
 }
 
 /// Make a parser that matches either parser1 or parser2.
-pub fn select<I, P1, P2>(p1: P1, p2: P2) -> SelectParser<I, P1, P2>
+pub fn select<I, P1, P2>(p1: P1, p2: P2) -> Select<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>,
                 P2: Parser<Input=I, Output=P1::Output> {
-    SelectParser { p1: p1, p2: p2 }
+    Select { p1: p1, p2: p2 }
 }
 
 #[test]
@@ -404,11 +404,11 @@ fn select_test() {
 
 #[derive(Debug, Clone)]
 /// A parser that matches a patten of the argument parser and ignores that return value.
-pub struct SuccessParser<I, P>
+pub struct Success<I, P>
 where I: Clone, P: Parser<Input=I> {
     p: P,
 }
-impl <I: Clone, P: Parser<Input=I>> Parser for SuccessParser<I, P> {
+impl <I: Clone, P: Parser<Input=I>> Parser for Success<I, P> {
     type Output = ();
     type Input = I;
 
@@ -423,9 +423,9 @@ impl <I: Clone, P: Parser<Input=I>> Parser for SuccessParser<I, P> {
 }
 
 /// Make a parser that matches a pattern of the argument parser and ignores that return value.
-pub fn success<I, P>(p: P) -> SuccessParser<I, P>
+pub fn success<I, P>(p: P) -> Success<I, P>
 where I: Clone, P: Parser<Input=I> {
-    SuccessParser { p : p }
+    Success { p : p }
 }
 
 #[test]
