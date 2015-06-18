@@ -1,5 +1,8 @@
 //! primitive parsers are defined here.
 
+pub mod helper;
+pub use self::helper::{option, many, many1, select, success};
+
 use std::iter::{Iterator, Peekable};
 use std::marker::PhantomData;
 
