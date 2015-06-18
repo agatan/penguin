@@ -25,7 +25,7 @@ pub trait Parser {
     /// `Output` is a type of parse when the parse succeeded.
     type Output;
     /// `Input` is a type of stream's element that is parsed.
-    type Input;
+    type Input: Clone;
     /// returns parse result and context of parse.
     /// If you want to parse string, `src` may be `Peekable<char>`
     fn parse<I>(&mut self, mut src: Peekable<I>)
@@ -38,7 +38,7 @@ pub trait Parser {
 pub struct AnyParser<I> {
     _mark: PhantomData<I>
 }
-impl <In> Parser for AnyParser<In> {
+impl <In: Clone> Parser for AnyParser<In> {
     type Output = ();
     type Input = In;
     fn parse<I>(&mut self, mut src: Peekable<I>)
@@ -148,7 +148,7 @@ fn exact_test() {
 pub struct EndParser<I> {
     _mark: PhantomData<I>,
 }
-impl <In> Parser for EndParser<In> {
+impl <In: Clone> Parser for EndParser<In> {
     type Output = ();
     type Input = In;
     fn parse<I>(&mut self, mut src: Peekable<I>)

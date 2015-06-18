@@ -27,12 +27,37 @@ pub trait AdvancedParser : Parser {
     /// ```
     fn map<B, F>(self, f: F) -> Map<Self, F>
         where F: FnMut(Self::Output) -> B;
+
+    /// Test the following tokens can match the argument parser
+    ///
+    /// ```
+    /// use rparse::prim::{Parser, exact};
+    /// use rparse::combinator::{AdvancedParser};
+    ///
+    /// let a_ex = exact('a');
+    /// let b_ex = exact('b');
+    /// let mut parser = a_ex.followed_by(b_ex);
+    /// let res = parser.parse("abc".chars().peekable());
+    ///
+    /// assert!(res.is_ok());
+    /// if let Ok((r, ctx)) = res {
+    ///     assert_eq!('a', r);
+    ///     assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
+    /// }
+    /// ```
+    fn followed_by<P: Parser<Input=Self::Input> + Clone>(self, p: P)
+        -> FollowedBy<Self, P>;
 }
 
-impl <P: Parser> AdvancedParser for P {
+impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
     fn map<B, F>(self, f: F) -> Map<Self, F>
     where F: FnMut(Self::Output) -> B {
         Map { p: self, f: f }
+    }
+
+    fn followed_by<T: Parser<Input=Self::Input> + Clone>(self, p: T)
+        -> FollowedBy<Self, T> {
+        FollowedBy { p: self, follow: p }
     }
 }
 
@@ -79,52 +104,41 @@ fn map_test() {
 #[derive(Debug, Clone)]
 /// A parser that doesn't cosume any token of the source.
 /// It only tests the argument parser matches following tokens.
-pub struct FollowedBy<I: Clone, P: Parser<Input=I>> {
-    p: P,
+pub struct FollowedBy<P1: Parser, P2: Parser<Input=P1::Input>> {
+    p: P1,
+    follow: P2
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for FollowedBy<In, P> {
-    type Output = ();
-    type Input = P::Input;
+impl <P1: Parser, P2: Parser<Input=P1::Input>> Parser for FollowedBy<P1, P2> {
+    type Output = P1::Output;
+    type Input = P1::Input;
 
     fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
         let save = src.clone();
-        match self.p.parse(src) {
-            Ok((_, _)) => Ok(((), save)),
-            Err((e, _)) => Err((e, save))
+        let res = match self.p.parse(src) {
+            Ok(r) => r,
+            Err((e, _)) => return Err((e, save))
+        };
+        let save2 = res.1.clone();
+        match self.follow.parse(res.1) {
+            Ok((_, _)) => Ok((res.0, save2)),
+            Err((e, _)) => Err((e, save)),
         }
     }
-}
-
-/// Make a parser that tests the argument parser matches following tokens.
-///
-/// ```
-/// use rparse::prim::{Parser, exact};
-/// use rparse::combinator::followed_by;
-///
-/// let t_ex = exact('t');
-/// let src = "test".chars().peekable();
-/// let mut and_p = followed_by(t_ex);
-/// let res = and_p.parse(src);
-/// assert!(res.is_ok());
-/// if let Ok(((), ctx)) = res {
-///     assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
-/// }
-/// ```
-pub fn followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> FollowedBy<I, P> {
-    FollowedBy { p : p }
 }
 
 #[test]
 fn followed_by_test() {
     let t_ex = exact('t');
+    let e_ex = exact('e');
     let src = "test".chars().peekable();
-    let mut and_p = followed_by(t_ex);
+    let mut and_p = t_ex.followed_by(e_ex);
     let res = and_p.parse(src);
     assert!(res.is_ok());
-    if let Ok(((), ctx)) = res {
-        assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
+    if let Ok((r, ctx)) = res {
+        assert_eq!('t', r);
+        assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
     }
 }
 
