@@ -48,10 +48,10 @@ fn map_test() {
 #[derive(Debug, Clone)]
 /// A parser that doesn't cosume any token of the source.
 /// It only tests the argument parser matches following tokens.
-pub struct AndParser<I: Clone, P: Parser<Input=I>> {
+pub struct FollowedBy<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
+impl <In: Clone, P: Parser<Input=In>> Parser for FollowedBy<In, P> {
     type Output = ();
     type Input = P::Input;
 
@@ -67,15 +67,15 @@ impl <In: Clone, P: Parser<Input=In>> Parser for AndParser<In, P> {
 }
 
 /// Make a parser that tests the argument parser matches following tokens.
-pub fn and<I: Clone, P: Parser<Input=I>>(p: P) -> AndParser<I, P> {
-    AndParser { p : p }
+pub fn followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> FollowedBy<I, P> {
+    FollowedBy { p : p }
 }
 
 #[test]
-fn and_test() {
+fn followed_by_test() {
     let t_ex = exact('t');
     let src = "test".chars().peekable();
-    let mut and_p = and(t_ex);
+    let mut and_p = followed_by(t_ex);
     let res = and_p.parse(src);
     assert!(res.is_ok());
     if let Ok(((), ctx)) = res {
