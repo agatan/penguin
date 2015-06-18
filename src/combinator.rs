@@ -47,6 +47,25 @@ pub trait AdvancedParser : Parser {
     /// ```
     fn followed_by<P: Parser<Input=Self::Input> + Clone>(self, p: P)
         -> FollowedBy<Self, P>;
+
+    /// Test the following tokens cannot match the argument parser
+    ///
+    /// ```
+    /// use rparse::prim::{Parser, exact};
+    /// use rparse::combinator::{AdvancedParser};
+    ///
+    /// let a_ex = exact('a');
+    /// let b_ex = exact('b');
+    /// let mut parser = a_ex.not_followed_by(b_ex);
+    /// let res = parser.parse("abc".chars().peekable());
+    ///
+    /// assert!(res.is_err());
+    /// if let Err((_, ctx)) = res {
+    ///     assert_eq!(vec!['a', 'b', 'c'], ctx.collect::<Vec<_>>());
+    /// }
+    /// ```
+    fn not_followed_by<P: Parser<Input=Self::Input> + Clone>(self, p: P)
+        -> NotFollowedBy<Self, P>;
 }
 
 impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
@@ -58,6 +77,11 @@ impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
     fn followed_by<T: Parser<Input=Self::Input> + Clone>(self, p: T)
         -> FollowedBy<Self, T> {
         FollowedBy { p: self, follow: p }
+    }
+
+    fn not_followed_by<T: Parser<Input=Self::Input> + Clone>(self, p: T)
+        -> NotFollowedBy<Self, T> {
+        NotFollowedBy { p: self, not_follow: p }
     }
 }
 
@@ -145,53 +169,43 @@ fn followed_by_test() {
 #[derive(Debug, Clone)]
 /// A parser that doesn't consume any token of the source.
 /// It only tests the argument parser won't match following tokens.
-pub struct NotFollowedBy<I: Clone, P: Parser<Input=I>> {
-    p: P,
+pub struct NotFollowedBy<P1: Parser, P2: Parser<Input=P1::Input>> {
+    p: P1,
+    not_follow: P2,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for NotFollowedBy<In, P> {
-    type Output = ();
-    type Input = P::Input;
+impl <P1: Parser, P2: Parser<Input=P1::Input>> Parser for NotFollowedBy<P1, P2> {
+    type Output = P1::Output;
+    type Input = P1::Input;
 
     fn parse<I>(&mut self, src: Peekable<I>)
         -> ParseResult<Self::Output, Peekable<I>>
         where I: Clone + Iterator<Item=Self::Input> {
 
         let save = src.clone();
-        match self.p.parse(src) {
+        let res = match self.p.parse(src) {
+            Ok(ret) => ret,
+            Err((e, _)) => return Err((e, save)),
+        };
+        let save2 = res.1.clone();
+        match self.not_follow.parse(res.1) {
             Ok((_, _)) => Err((Error::Expect, save)),
-            Err((_, _)) => Ok(((), save)),
+            Err((_, _)) => Ok((res.0, save2)),
         }
     }
 }
 
-/// Make a parser that tests the argument parser doesn't match following tokens.
-///
-/// ```
-/// use rparse::prim::{Parser, exact};
-/// use rparse::combinator::not_followed_by;
-///
-/// let t_ex = exact('t');
-/// let src = "te".chars().peekable();
-/// let mut not_p = not_followed_by(t_ex);
-/// let res = not_p.parse(src);
-/// assert!(res.is_err());
-/// if let Err((_, ctx)) = res {
-///     assert_eq!(vec!['t', 'e'], ctx.collect::<Vec<_>>());
-/// }
-/// ```
-pub fn not_followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> NotFollowedBy<I, P> {
-    NotFollowedBy { p: p }
-}
 
 #[test]
 fn not_followed_by_test() {
     let t_ex = exact('t');
+    let e_ex = exact('s');
     let src = "te".chars().peekable();
-    let mut not_p = not_followed_by(t_ex);
+    let mut not_p = t_ex.not_followed_by(e_ex);
     let res = not_p.parse(src);
-    assert!(res.is_err());
-    if let Err((_, ctx)) = res {
-        assert_eq!(vec!['t', 'e'], ctx.collect::<Vec<_>>());
+    assert!(res.is_ok());
+    if let Ok((r, ctx)) = res {
+        assert_eq!('t', r);
+        assert_eq!(vec!['e'], ctx.collect::<Vec<_>>());
     }
 }
 
