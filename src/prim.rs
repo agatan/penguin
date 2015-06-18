@@ -51,6 +51,19 @@ impl <In> Parser for AnyParser<In> {
 }
 
 /// Make a parser that matches all tokens.
+///
+/// ```
+/// use rparse::prim::{Parser, any};
+///
+/// let src = "test".chars().peekable();
+/// let mut any_parser = any();
+/// let res = any_parser.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((res, ctx)) = res {
+///     assert!(res == ());
+///     assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn any<I>() -> AnyParser<I> {
     AnyParser { _mark: PhantomData }
 }
@@ -98,6 +111,19 @@ impl <In: PartialEq + Clone> Parser for ExactParser<In> {
 }
 
 /// Make a parser. The parser matches a token that is equal to the argument.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+///
+/// let src = "test".chars().peekable();
+/// let mut parser = exact('t');
+/// let res = parser.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!('t', r);
+///     assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn exact<T>(t: T) -> ExactParser<T> where T: PartialEq {
     ExactParser { needle: t }
 }
@@ -134,6 +160,16 @@ impl <In> Parser for EndParser<In> {
 }
 
 /// Make a parser that matches when the source is empty.
+///
+/// ```
+/// use rparse::prim::{Parser, end};
+///
+/// let mut end_parser = end();
+/// let src = "".chars().peekable();
+/// assert!(end_parser.parse(src).is_ok());
+/// let src = "a".chars().peekable();
+/// assert!(!end_parser.parse(src).is_ok());
+/// ```
 pub fn end<I>() -> EndParser<I> {
     EndParser { _mark: PhantomData }
 }
@@ -171,6 +207,19 @@ impl <'a> Parser for StringParser<'a> {
 
 
 /// Make a parser that matches the argument string.
+///
+/// ```
+/// use rparse::prim::{Parser, string};
+///
+/// let src = "test".chars().peekable();
+/// let mut parser = string("tes");
+/// let res = parser.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!("tes".to_string(), r);
+///     assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn string<'a>(s: &'a str) -> StringParser<'a> {
     StringParser { ss: s }
 }
@@ -212,6 +261,19 @@ impl <'a, T: PartialEq + Clone> Parser for SetParser<'a, T> {
 }
 
 /// Make a parser that matches any token in the argument set.
+///
+/// ```
+/// use rparse::prim::{Parser, set};
+///
+/// let ss = vec!['s', 't', 'u'];
+/// let mut p = set(&ss);
+/// let src = "test".chars().peekable();
+/// let res = p.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok(('t', ctx)) = res {
+///     assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn set<'a, T: PartialEq>(ss: &'a [T]) -> SetParser<'a, T> {
     SetParser { ss: ss }
 }
