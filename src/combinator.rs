@@ -87,6 +87,26 @@ pub trait AdvancedParser : Parser {
     /// ```
     fn and<P: Parser<Input=Self::Input> + Clone>(self, p: P)
         -> Seq<Self::Input, Self, P>;
+
+    /// Test parser1, and then test parser2 and skip it.
+    ///
+    /// ```
+    /// use rparse::prim::{Parser, exact};
+    /// use rparse::combinator::AdvancedParser;
+    ///
+    /// let a_ex = exact('a');
+    /// let comma = exact(',');
+    /// let b_ex = exact('b');
+    /// let mut parser = a_ex.skip(comma).and(b_ex);
+    /// let res = parser.parse("a,b".chars().peekable());
+    ///
+    /// assert!(res.is_ok());
+    /// if let Ok((r, ctx)) = res {
+    ///     assert_eq!(('a', 'b'), r);
+    /// }
+    /// ```
+    fn skip<P: Parser<Input=Self::Input> + Clone>(self, p: P)
+        -> Skip<Self, P>;
 }
 
 impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
@@ -108,6 +128,11 @@ impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
     fn and<T: Parser<Input=Self::Input> + Clone>(self, p: T)
         -> Seq<Self::Input, Self, T> {
         Seq { p1: self, p2: p }
+    }
+
+    fn skip<T: Parser<Input=Self::Input> + Clone>(self, p: T)
+        -> Skip<Self, T> {
+        Skip { p: self, skip: p }
     }
 }
 
@@ -282,3 +307,29 @@ fn seq_test() {
         assert_eq!(vec!['a', 'c', 'd'], ctx.collect::<Vec<_>>());
     }
 }
+
+#[derive(Debug, Clone)]
+/// A parser that test the first pattern and skip the second pattern
+pub struct Skip<P1: Parser, P2: Parser<Input=P1::Input>> {
+    p: P1,
+    skip: P2,
+}
+
+impl <P1: Parser, P2: Parser<Input=P1::Input>> Parser for Skip<P1, P2> {
+    type Output = P1::Output;
+    type Input = P1::Input;
+
+    fn parse<I>(&mut self, src: Peekable<I>) -> ParseResult<Self::Output, Peekable<I>>
+    where I: Clone + Iterator<Item=Self::Input> {
+        let save = src.clone();
+        let res = match self.p.parse(src) {
+            Ok(res) => res,
+            Err(e) => return Err(e),
+        };
+        match self.skip.parse(res.1) {
+            Ok((_, ctx)) => Ok((res.0, ctx)),
+            Err((e, _)) => Err((e, save)),
+        }
+    }
+}
+
