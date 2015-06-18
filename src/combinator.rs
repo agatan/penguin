@@ -66,6 +66,27 @@ pub trait AdvancedParser : Parser {
     /// ```
     fn not_followed_by<P: Parser<Input=Self::Input> + Clone>(self, p: P)
         -> NotFollowedBy<Self, P>;
+
+    /// Test parser1, and then test parser2.
+    /// Return the tuple of those return values.
+    ///
+    /// ```
+    /// use rparse::prim::{Parser, exact};
+    /// use rparse::combinator::AdvancedParser;
+    ///
+    /// let a_ex = exact('a');
+    /// let b_ex = exact('b');
+    /// let mut parser = a_ex.and(b_ex);
+    /// let res = parser.parse("abc".chars().peekable());
+    ///
+    /// assert!(res.is_ok());
+    /// if let Ok((r, ctx)) = res {
+    ///     assert_eq!(('a', 'b'), r);
+    ///     assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
+    /// }
+    /// ```
+    fn and<P: Parser<Input=Self::Input> + Clone>(self, p: P)
+        -> Seq<Self::Input, Self, P>;
 }
 
 impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
@@ -82,6 +103,11 @@ impl <I: Clone, P: Clone + Parser<Input=I>> AdvancedParser for P {
     fn not_followed_by<T: Parser<Input=Self::Input> + Clone>(self, p: T)
         -> NotFollowedBy<Self, T> {
         NotFollowedBy { p: self, not_follow: p }
+    }
+
+    fn and<T: Parser<Input=Self::Input> + Clone>(self, p: T)
+        -> Seq<Self::Input, Self, T> {
+        Seq { p1: self, p2: p }
     }
 }
 
@@ -235,33 +261,12 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
     }
 }
 
-/// Make a parser that matches a sequence of parser1 and parser2.
-///
-/// ```
-/// use rparse::prim::{Parser, exact};
-/// use rparse::combinator::seq;
-
-/// let a_ex = exact('a');
-/// let b_ex = exact('b');
-/// let mut seq_ab = seq(a_ex, b_ex);
-/// let src = "abc".chars().peekable();
-/// let res = seq_ab.parse(src);
-/// assert!(res.is_ok());
-/// if let Ok((r, ctx)) = res {
-///     assert_eq!(('a', 'b'), r);
-///     assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
-/// }
-/// ```
-pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> Seq<I, P1, P2>
-where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
-    Seq { p1: p1, p2: p2 }
-}
 
 #[test]
 fn seq_test() {
     let a_ex = exact('a');
     let b_ex = exact('b');
-    let mut seq_ab = seq(a_ex, b_ex);
+    let mut seq_ab = a_ex.and(b_ex);
     let src = "abc".chars().peekable();
     let res = seq_ab.parse(src);
     assert!(res.is_ok());

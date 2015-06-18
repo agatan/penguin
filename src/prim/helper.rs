@@ -358,13 +358,13 @@ impl <I: Clone, P: Parser<Input=I>> Parser for Success<I, P> {
 /// use rparse::prim::*;
 /// use rparse::combinator::*;
 ///
-/// let seq_ab = seq(exact('a'), exact('b'));
+/// let a_ex = exact('a');
 /// let src = "abc".chars().peekable();
-/// let res = success(seq_ab).parse(src);
+/// let res = success(a_ex).parse(src);
 /// assert!(res.is_ok());
 /// if let Ok((r, ctx)) = res {
 ///     assert_eq!((), r);
-///     assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
+///     assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
 /// }
 /// ```
 pub fn success<I, P>(p: P) -> Success<I, P>
