@@ -293,3 +293,45 @@ fn set_test() {
     }
 }
 
+
+#[derive(Debug, Clone)]
+/// A parser that tests whether the following token satisfy the condition.
+pub struct Satisfy<I, F: FnMut(&I) -> bool> {
+    f: F,
+    _mark: PhantomData<I>
+}
+
+impl <In: Clone, F: FnMut(&In) -> bool> Parser for Satisfy<In, F> {
+    type Output = In;
+    type Input = In;
+
+    fn parse<I>(&mut self, mut src: Peekable<I>) -> ParseResult<Self::Output, Peekable<I>>
+    where I: Clone + Iterator<Item=Self::Input> {
+        let ret = src.peek().map(|t| (self.f)(t));
+        if let Some(true) = ret {
+            let t = src.peek().unwrap().clone();
+            let _ = src.next();
+            Ok((t, src))
+        } else {
+            Err((Error::Expect, src))
+        }
+    }
+}
+
+/// Make a parser that matches the token satisfied the condition.
+///
+/// ```
+/// use rparse::prim::{Parser, satisfy};
+///
+/// let src = "test".chars().peekable();
+/// let mut parser = satisfy(|t| 'o' < *t && *t < 'z');
+/// let res = parser.parse(src);
+///
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!('t', r);
+///     assert_eq!(vec!['e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+pub fn satisfy<I: Clone, F: FnMut(&I) -> bool>(pred: F) -> Satisfy<I, F> {
+    Satisfy { f: pred, _mark: PhantomData }
+}
