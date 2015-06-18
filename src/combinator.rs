@@ -28,6 +28,20 @@ where F: FnMut(P::Output) -> B {
 }
 
 /// map a return value of the parser with the function.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::map;
+///
+/// let mut m = map(exact('a'), |r| { format!("matched: {}", r) });
+/// let src = "abc".chars().peekable();
+/// let res = m.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!("matched: a".to_string(), r);
+///     assert_eq!(vec!['b', 'c'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn map<B, P: Parser, F>(p: P, f: F) -> Map<P, F>
 where F: FnMut(P::Output) -> B {
     Map { p: p, f: f }
@@ -67,6 +81,20 @@ impl <In: Clone, P: Parser<Input=In>> Parser for FollowedBy<In, P> {
 }
 
 /// Make a parser that tests the argument parser matches following tokens.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::followed_by;
+///
+/// let t_ex = exact('t');
+/// let src = "test".chars().peekable();
+/// let mut and_p = followed_by(t_ex);
+/// let res = and_p.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok(((), ctx)) = res {
+///     assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> FollowedBy<I, P> {
     FollowedBy { p : p }
 }
@@ -106,6 +134,20 @@ impl <In: Clone, P: Parser<Input=In>> Parser for NotFollowedBy<In, P> {
 }
 
 /// Make a parser that tests the argument parser doesn't match following tokens.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::not_followed_by;
+///
+/// let t_ex = exact('t');
+/// let src = "te".chars().peekable();
+/// let mut not_p = not_followed_by(t_ex);
+/// let res = not_p.parse(src);
+/// assert!(res.is_err());
+/// if let Err((_, ctx)) = res {
+///     assert_eq!(vec!['t', 'e'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn not_followed_by<I: Clone, P: Parser<Input=I>>(p: P) -> NotFollowedBy<I, P> {
     NotFollowedBy { p: p }
 }
@@ -144,6 +186,31 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Optional<In, P> {
 
 /// Make a optional parser. If following tokens are matched the argument parser,
 /// it returns `Some(T)`. If not, it just returns `None` and doesn't cosume tokens of the source.
+///
+/// ```
+/// use rparse::prim::{Parser, string};
+/// use rparse::combinator::option;
+///
+/// let str_test = string("tes");
+/// let src = "test".chars().peekable();
+/// let mut opt = option(str_test);
+/// let res = opt.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!("tes".to_string(), r.unwrap());
+///     assert_eq!(vec!['t'], ctx.collect::<Vec<_>>());
+/// }
+///
+/// let str_test = string("example");
+/// let src = "test".chars().peekable();
+/// let mut opt = option(str_test);
+/// let res = opt.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert!(r.is_none());
+///     assert_eq!(vec!['t', 'e', 's', 't'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn option<I: Clone, P: Parser<Input=I>>(p: P) -> Optional<I, P> {
     Optional { p : p }
 }
@@ -202,6 +269,38 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many<In, P> {
 }
 
 /// Make a Many parser. It matches zero or more repeated patterns of the argument parser.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::many;
+///
+/// let a_ex = exact('a');
+/// let src = "aaaabb".chars().peekable();
+/// let mut many_p = many(a_ex);
+/// let res: Result<(Vec<_>, _), _> = many_p.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((v, ctx)) = res {
+///     assert_eq!(vec!['a', 'a', 'a', 'a'], v);
+///     assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
+///
+/// Notice that, this can match no repeated pattern.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::many;
+///
+/// let a_ex = exact('a');
+/// let src = "bb".chars().peekable();
+/// let mut many_p = many(a_ex);
+/// let res: Result<(Vec<_>, _), _> = many_p.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((v, ctx)) = res {
+///     assert!(v.is_empty());
+///     assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn many<I: Clone, P: Parser<Input=I>>(p: P) -> Many<I, P> {
     Many { p: p }
 }
@@ -264,6 +363,37 @@ impl <In: Clone, P: Parser<Input=In>> Parser for Many1<In, P> {
 }
 
 /// Make a Many1 parser. It matches one or more repeated patterns of the argument parser.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::many1;
+///
+/// let a_ex = exact('a');
+/// let src = "aaaabb".chars().peekable();
+/// let mut many1_p = many1(a_ex);
+/// let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((v, ctx)) = res {
+///     assert_eq!(vec!['a', 'a', 'a', 'a'], v);
+///     assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
+///
+/// Notice that, this parser cannot match no repeated pattern.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::many1;
+///
+/// let a_ex = exact('a');
+/// let src = "bb".chars().peekable();
+/// let mut many1_p = many1(a_ex);
+/// let res: Result<(Vec<_>, _), _> = many1_p.parse(src);
+/// assert!(res.is_err());
+/// if let Err((_, ctx)) = res {
+///     assert_eq!(vec!['b', 'b'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn many1<I: Clone, P: Parser<Input=I>>(p : P) -> Many1<I, P> {
     Many1 { p : p }
 }
@@ -317,6 +447,22 @@ where P1: Parser<Input=In>, P2: Parser<Input=P1::Input> {
 }
 
 /// Make a parser that matches a sequence of parser1 and parser2.
+///
+/// ```
+/// use rparse::prim::{Parser, exact};
+/// use rparse::combinator::seq;
+
+/// let a_ex = exact('a');
+/// let b_ex = exact('b');
+/// let mut seq_ab = seq(a_ex, b_ex);
+/// let src = "abc".chars().peekable();
+/// let res = seq_ab.parse(src);
+/// assert!(res.is_ok());
+/// if let Ok((r, ctx)) = res {
+///     assert_eq!(('a', 'b'), r);
+///     assert_eq!(vec!['c'], ctx.collect::<Vec<_>>());
+/// }
+/// ```
 pub fn seq<I, P1, P2>(p1: P1, p2: P2) -> Seq<I, P1, P2>
 where I: Clone, P1: Parser<Input=I>, P2: Parser<Input=I> {
     Seq { p1: p1, p2: p2 }
