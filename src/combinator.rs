@@ -124,10 +124,10 @@ fn not_followed_by_test() {
 
 #[derive(Debug, Clone)]
 /// A optional parser.
-pub struct OptionParser<I: Clone, P: Parser<Input=I>> {
+pub struct Optional<I: Clone, P: Parser<Input=I>> {
     p: P,
 }
-impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
+impl <In: Clone, P: Parser<Input=In>> Parser for Optional<In, P> {
     type Output = Option<P::Output>;
     type Input = P::Input;
 
@@ -144,8 +144,8 @@ impl <In: Clone, P: Parser<Input=In>> Parser for OptionParser<In, P> {
 
 /// Make a optional parser. If following tokens are matched the argument parser,
 /// it returns `Some(T)`. If not, it just returns `None` and doesn't cosume tokens of the source.
-pub fn option<I: Clone, P: Parser<Input=I>>(p: P) -> OptionParser<I, P> {
-    OptionParser { p : p }
+pub fn option<I: Clone, P: Parser<Input=I>>(p: P) -> Optional<I, P> {
+    Optional { p : p }
 }
 
 #[test]
